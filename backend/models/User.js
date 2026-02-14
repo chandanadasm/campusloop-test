@@ -8,7 +8,7 @@ const userSchema = mongoose.Schema({
     college: { type: String, default: 'Not Specified' },
     score: { type: Number, default: 0 },
     joinedArea: { type: mongoose.Schema.Types.ObjectId, ref: 'Area', default: null },
-    vehicleType: { type: String, default: 'None' }, // e.g., 'Bike', 'Car', 'None'
+    vehicleType: { type: String, default: 'None' },
     ridePreference: { type: String, enum: ['Driver', 'Passenger', 'Both', 'None'], default: 'None' },
 }, {
     timestamps: true
@@ -17,10 +17,11 @@ const userSchema = mongoose.Schema({
 // Hash password before saving
 userSchema.pre('save', async function (next) {
     if (!this.isModified('password')) {
-        next();
+        return next();
     }
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
+    next();
 });
 
 // Match password method
