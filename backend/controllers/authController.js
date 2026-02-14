@@ -1,86 +1,93 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
-// Generate JWT
+// Generate JWT Token
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// @desc    Register new user
-// @route   POST /api/auth/register
-// @access  Public
+// POST /api/auth/register
 const registerUser = async (req, res) => {
     try {
+        console.log('📝 Register request body:', JSON.stringify(req.body));
         const { name, email, password, college } = req.body;
 
         if (!name || !email || !password) {
-            return res.status(400).json({ message: 'Please add all fields' });
+            console.log('❌ Missing fields:', { name: !!name, email: !!email, password: !!password });
+            return res.status(400).json({ message: 'Please provide name, email, and password' });
         }
 
-        const userExists = await User.findOne({ email });
-
-        if (userExists) {
-            return res.status(400).json({ message: 'User already exists' });
+        // Check if user already exists
+        const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+        if (existingUser) {
+            console.log('❌ User already exists:', email);
+            return res.status(400).json({ message: 'User with this email already exists' });
         }
 
+        // Create user (password is hashed in pre-save hook)
         const user = await User.create({
-            name,
-            email,
+            name: name.trim(),
+            email: email.toLowerCase().trim(),
             password,
-            college
+            college: college || 'Not Specified'
         });
 
-        if (user) {
-            res.status(201).json({
-                _id: user.id,
-                name: user.name,
-                email: user.email,
-                token: generateToken(user.id),
-            });
-        } else {
-            res.status(400).json({ message: 'Invalid user data' });
-        }
+        console.log('✅ User created:', user._id, user.name);
+
+        return res.status(201).json({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            score: user.score || 0,
+            token: generateToken(user._id),
+        });
     } catch (error) {
-        console.error('Register error:', error);
-        res.status(500).json({ message: 'Server error: ' + error.message });
+        console.error('❌ Register error:', error);
+        return res.status(500).json({ message: 'Server error during registration: ' + error.message });
     }
 };
 
-// @desc    Authenticate a user
-// @route   POST /api/auth/login
-// @access  Public
+// POST /api/auth/login
 const loginUser = async (req, res) => {
     try {
+        console.log('🔐 Login request body:', JSON.stringify(req.body));
         const { email, password } = req.body;
 
-        const user = await User.findOne({ email });
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Please provide email and password' });
+        }
 
-        if (user && (await user.matchPassword(password))) {
-            res.json({
-                _id: user.id,
+        const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+        if (!user) {
+            console.log('❌ No user found with email:', email);
+            return res.status(401).json({ message: 'Invalid credentials - user not found' });
+        }
+
+        const isMatch = await user.matchPassword(password);
+        console.log('🔑 Password match result:', isMatch);
+
+        if (isMatch) {
+            console.log('✅ Login successful:', user.name);
+            return res.json({
+                _id: user._id,
                 name: user.name,
                 email: user.email,
-                score: user.score,
-                token: generateToken(user.id),
+                score: user.score || 0,
+                token: generateToken(user._id),
             });
         } else {
-            res.status(401).json({ message: 'Invalid credentials' });
+            return res.status(401).json({ message: 'Invalid credentials - wrong password' });
         }
     } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ message: 'Server error: ' + error.message });
+        console.error('❌ Login error:', error);
+        return res.status(500).json({ message: 'Server error during login: ' + error.message });
     }
 };
 
-// @desc    Get user data
-// @route   GET /api/auth/me
-// @access  Private
+// GET /api/auth/me
 const getMe = async (req, res) => {
-    res.status(200).json(req.user);
+    return res.status(200).json(req.user);
 };
 
-module.exports = {
-    registerUser,
-    loginUser,
-    getMe,
-};
+module.exports = { registerUser, loginUser, getMe };

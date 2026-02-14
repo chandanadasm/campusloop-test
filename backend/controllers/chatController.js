@@ -1,34 +1,31 @@
 const Chat = require('../models/Chat');
 
-// @desc    Send Message
-// @route   POST /api/chat
-// @access  Private
+// POST /api/chat
 const sendMessage = async (req, res) => {
-    const { message } = req.body;
+    try {
+        const { message } = req.body;
+        if (!message) return res.status(400).json({ message: 'Message is required' });
 
-    if (!message) {
-        return res.status(400).json({ message: 'Message is required' });
+        const chat = await Chat.create({
+            senderId: req.user._id,
+            senderName: req.user.name,
+            message,
+            role: 'student'
+        });
+        return res.status(201).json(chat);
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
     }
-
-    const chat = await Chat.create({
-        senderId: req.user.id,
-        senderName: req.user.name,
-        message,
-        role: 'student' // Default for now
-    });
-
-    res.status(201).json(chat);
 };
 
-// @desc    Get Chat History
-// @route   GET /api/chat
-// @access  Public
+// GET /api/chat
 const getChat = async (req, res) => {
-    const messages = await Chat.find().sort({ createdAt: 1 }); // Oldest first
-    res.json(messages);
+    try {
+        const messages = await Chat.find().sort({ createdAt: 1 });
+        return res.json(messages);
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
 };
 
-module.exports = {
-    sendMessage,
-    getChat
-};
+module.exports = { sendMessage, getChat };

@@ -3,7 +3,8 @@ const router = express.Router();
 const { createResource, getResources, deleteResource } = require('../controllers/resourceController');
 const { protect } = require('../middleware/authMiddleware');
 
-router.route('/').get(getResources).post(protect, createResource);
-router.route('/:id').delete(protect, deleteResource);
+router.post('/', protect, createResource);
+router.get('/', getResources);
+router.delete('/:id', protect, deleteResource);
 
 module.exports = router;

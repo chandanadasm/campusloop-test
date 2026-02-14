@@ -1,60 +1,47 @@
 const Resource = require('../models/Resource');
 
-// @desc    Create new Resource
-// @route   POST /api/resources
-// @access  Private
+// POST /api/resources
 const createResource = async (req, res) => {
-    const { title, description, type, price, contact } = req.body;
-
-    if (!title || !description || !type || !contact) {
-        return res.status(400).json({ message: 'Please add all required fields' });
+    try {
+        const { title, description, type, price, contact } = req.body;
+        if (!title || !description || !type || !contact) {
+            return res.status(400).json({ message: 'Please add all required fields' });
+        }
+        const resource = await Resource.create({
+            title, description, type, price, contact,
+            uploadedBy: req.user._id,
+            userName: req.user.name
+        });
+        return res.status(201).json(resource);
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
     }
-
-    const resource = await Resource.create({
-        title,
-        description,
-        type,
-        price,
-        contact,
-        uploadedBy: req.user.id,
-        userName: req.user.name
-    });
-
-    res.status(201).json(resource);
 };
 
-// @desc    Get all Resources
-// @route   GET /api/resources
-// @access  Public
+// GET /api/resources
 const getResources = async (req, res) => {
-    const { type } = req.query;
-    let query = {};
-    if (type) {
-        query.type = type;
+    try {
+        const query = req.query.type ? { type: req.query.type } : {};
+        const resources = await Resource.find(query).sort({ createdAt: -1 });
+        return res.json(resources);
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
     }
-    const resources = await Resource.find(query).sort({ createdAt: -1 });
-    res.json(resources);
 };
 
-// @desc    Delete Resource
-// @route   DELETE /api/resources/:id
-// @access  Private
+// DELETE /api/resources/:id
 const deleteResource = async (req, res) => {
-    const resource = await Resource.findById(req.params.id);
-
-    if (!resource) return res.status(404).json({ message: 'Resource not found' });
-
-    // Check for user
-    if (resource.uploadedBy.toString() !== req.user.id) {
-        return res.status(401).json({ message: 'User not authorized' });
+    try {
+        const resource = await Resource.findById(req.params.id);
+        if (!resource) return res.status(404).json({ message: 'Resource not found' });
+        if (resource.uploadedBy.toString() !== req.user._id.toString()) {
+            return res.status(401).json({ message: 'Not authorized' });
+        }
+        await resource.deleteOne();
+        return res.json({ id: req.params.id });
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
     }
-
-    await resource.deleteOne();
-    res.json({ id: req.params.id });
 };
 
-module.exports = {
-    createResource,
-    getResources,
-    deleteResource
-};
+module.exports = { createResource, getResources, deleteResource };
