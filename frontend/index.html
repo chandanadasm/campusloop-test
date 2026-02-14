@@ -631,6 +631,74 @@
         </div>
     </div>
 
+    <!-- Resource Post Modal -->
+    <div class="modal" id="resourceModal">
+        <div class="glass-card modal-content">
+            <h2>Post a Resource</h2>
+            <form id="resource-form" onsubmit="submitResource(event)">
+                <div class="form-group">
+                    <label>Item Title</label>
+                    <input type="text" id="res-title" placeholder="e.g. Organic Chemistry Textbook" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="res-desc" placeholder="e.g. 2nd edition, good condition" required>
+                </div>
+                <div class="form-group">
+                    <label>Type</label>
+                    <select id="res-type" required
+                        style="width:100%; padding:0.8rem; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); color:var(--text-main);">
+                        <option value="Book">Book</option>
+                        <option value="Equipment">Lab Equipment</option>
+                        <option value="Notes">Notes</option>
+                        <option value="PYQ">Previous Year Questions</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Price</label>
+                    <input type="text" id="res-price" placeholder="e.g. ₹250 or Free" required>
+                </div>
+                <div class="form-group">
+                    <label>Contact Info (Phone/Email)</label>
+                    <input type="text" id="res-contact" placeholder="e.g. 9876543210" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%">Post Item</button>
+            </form>
+            <button class="btn" style="width: 100%; margin-top: 1rem;" onclick="closeResourceModal()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Review Post Modal -->
+    <div class="modal" id="reviewModal">
+        <div class="glass-card modal-content">
+            <h2>Write a Review</h2>
+            <form id="review-form" onsubmit="submitReview(event)">
+                <div class="form-group">
+                    <label>Hostel Name</label>
+                    <input type="text" id="rev-hostel" placeholder="e.g. Skyline Residency" required>
+                </div>
+                <div class="form-group">
+                    <label>Rating (1-5)</label>
+                    <select id="rev-rating" required
+                        style="width:100%; padding:0.8rem; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); color:var(--text-main);">
+                        <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
+                        <option value="4">⭐⭐⭐⭐ Great</option>
+                        <option value="3">⭐⭐⭐ Average</option>
+                        <option value="2">⭐⭐ Below Average</option>
+                        <option value="1">⭐ Poor</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Your Review</label>
+                    <input type="text" id="rev-text" placeholder="Share your experience..." required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%">Submit Review</button>
+            </form>
+            <button class="btn" style="width: 100%; margin-top: 1rem;" onclick="closeReviewModal()">Cancel</button>
+        </div>
+    </div>
+
     <main id="main-area">
 
         <!-- Landing Page -->
@@ -913,41 +981,74 @@
         // --- Resources ---
         async function loadResources(type = '') {
             try {
-                const res = await fetch(`${API_URL}/resources${type ? '?type=' + type : ''}`);
+                const url = `${API_URL}/resources${type ? '?type=' + type : ''}`;
+                console.log('Loading resources from:', url);
+                const res = await fetch(url);
                 const data = await res.json();
+                console.log('Resources loaded:', data.length, 'items');
                 const grid = document.getElementById('resource-items');
 
-                grid.innerHTML = data.map(item => `
-                    <div class="glass-card item-card reveal active">
-                        <div class="item-img">${item.type === 'Book' ? '📘' : item.type === 'Equipment' ? '🔬' : '📄'}</div>
+                if (!Array.isArray(data) || data.length === 0) {
+                    grid.innerHTML = '<div style="text-align:center; padding:3rem; color:var(--text-muted); grid-column:1/-1;"><p style="font-size:3rem; margin-bottom:1rem;">📭</p><p>No items found yet. Be the first to post!</p></div>';
+                    return;
+                }
+
+                grid.innerHTML = data.map(item => {
+                    const icon = item.type === 'Book' ? '📘' : item.type === 'Equipment' ? '🔬' : item.type === 'Notes' ? '📝' : item.type === 'PYQ' ? '📋' : '📦';
+                    return `
+                    <div class="glass-card item-card">
+                        <div class="item-img">${icon}</div>
                         <h4>${item.title}</h4>
+                        <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:0.5rem;">${item.description || ''}</p>
                         <p class="item-price">${item.price}</p>
-                        <p class="item-meta">Posted by ${item.userName}</p>
-                        <button class="btn btn-primary" style="width: 100%; margin-top: auto;" onclick="alert('Contact: ${item.contact}')">Seller Info</button>
-                    </div>
-                `).join('');
-                if (data.length === 0) grid.innerHTML = '<p>No items found.</p>';
-            } catch (err) { console.error(err); }
+                        <p class="item-meta">📌 ${item.type} · Posted by ${item.userName}</p>
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 1rem;" onclick="alert('Contact: ${item.contact}')">Seller Info</button>
+                    </div>`;
+                }).join('');
+            } catch (err) {
+                console.error('Load resources error:', err);
+                document.getElementById('resource-items').innerHTML = '<p style="color:var(--secondary);">Failed to load resources. Check if backend is running.</p>';
+            }
         }
 
-        async function promptPostResource() {
-            const title = prompt("Item Title:");
-            if (!title) return;
-            const description = prompt("Description:");
-            const type = prompt("Type (Book, Equipment, Notes, PYQ, Other):");
-            const price = prompt("Price:");
-            const contact = prompt("Contact Info (Phone/Email):");
+        function promptPostResource() {
+            document.getElementById('resourceModal').classList.add('active');
+        }
 
-            await fetch(`${API_URL}/resources`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${currentState.token}`
-                },
-                body: JSON.stringify({ title, description, type, price, contact })
-            });
-            loadResources();
-            showToast("Item posted!");
+        function closeResourceModal() {
+            document.getElementById('resourceModal').classList.remove('active');
+            document.getElementById('resource-form').reset();
+        }
+
+        async function submitResource(e) {
+            e.preventDefault();
+            const title = document.getElementById('res-title').value;
+            const description = document.getElementById('res-desc').value;
+            const type = document.getElementById('res-type').value;
+            const price = document.getElementById('res-price').value;
+            const contact = document.getElementById('res-contact').value;
+
+            try {
+                const res = await fetch(`${API_URL}/resources`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentState.token}`
+                    },
+                    body: JSON.stringify({ title, description, type, price, contact })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    closeResourceModal();
+                    loadResources();
+                    showToast('Item posted successfully!');
+                } else {
+                    showToast(data.message || 'Failed to post item', true);
+                }
+            } catch (err) {
+                console.error('Post resource error:', err);
+                showToast('Failed to post item. Check connection.', true);
+            }
         }
 
         // --- Reviews ---
@@ -965,21 +1066,41 @@
         }
 
         async function promptPostReview() {
-            const hostelName = prompt("Hostel Name:");
-            if (!hostelName) return;
-            const rating = prompt("Rating (1-5):");
-            const reviewText = prompt("Your Review:");
+            document.getElementById('reviewModal').classList.add('active');
+        }
 
-            await fetch(`${API_URL}/reviews`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${currentState.token}`
-                },
-                body: JSON.stringify({ hostelName, rating, reviewText })
-            });
-            loadReviews();
-            showToast("Review posted!");
+        function closeReviewModal() {
+            document.getElementById('reviewModal').classList.remove('active');
+            document.getElementById('review-form').reset();
+        }
+
+        async function submitReview(e) {
+            e.preventDefault();
+            const hostelName = document.getElementById('rev-hostel').value;
+            const rating = document.getElementById('rev-rating').value;
+            const reviewText = document.getElementById('rev-text').value;
+
+            try {
+                const res = await fetch(`${API_URL}/reviews`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentState.token}`
+                    },
+                    body: JSON.stringify({ hostelName, rating, reviewText })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    closeReviewModal();
+                    loadReviews();
+                    showToast('Review posted!');
+                } else {
+                    showToast(data.message || 'Failed to post review', true);
+                }
+            } catch (err) {
+                console.error('Post review error:', err);
+                showToast('Failed to post review.', true);
+            }
         }
 
         // --- Chat ---
